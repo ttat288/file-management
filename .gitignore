@@ -1,5 +1,9 @@
 # Root .gitignore for full web solution
 
+# Markdown files (except README)
+*.md
+!README.md
+
 # Git metadata inside nested repositories
 **/.git/
 
