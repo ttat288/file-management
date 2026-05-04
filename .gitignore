@@ -1,9 +1,5 @@
 # Root .gitignore for full web solution
 
-# Markdown files (except README)
-*.md
-!README.md
-
 # Git metadata inside nested repositories
 **/.git/
 
@@ -146,3 +142,12 @@ bin/Release/net*/publish/
 
 # Optional: keep .gitignore for nested projects
 !/.gitignore
+
+# Documentation files
+*.md
+!README.md
+
+# .NET SDK and build cache
+.dotnet/
+.msbuild_sdks/
+.msbuild_sdks_overlay/
