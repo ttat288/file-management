@@ -1,0 +1,146 @@
+/* You can add global styles to this file, and also import other style files */
+
+@import 'tailwindcss';
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --bg: 255 255 255;
+    --fg: 17 24 39;
+    --muted: 107 114 128;
+
+    --card: 255 255 255;
+    --card-fg: 17 24 39;
+    --border: 229 231 235;
+
+    --primary: 79 70 229;
+    --primary-fg: 255 255 255;
+
+    --danger: 220 38 38;
+    --danger-fg: 255 255 255;
+
+    --ring: 99 102 241;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.08), 0 4px 6px rgb(0 0 0 / 0.06);
+
+    --radius-sm: 10px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+
+    --btn-h: 40px;
+    --btn-h-sm: 34px;
+    --btn-h-lg: 44px;
+    --icon: 18px;
+    --icon-sm: 16px;
+    --icon-lg: 20px;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --bg: 10 12 16;
+    --fg: 243 244 246;
+    --muted: 156 163 175;
+
+    --card: 17 24 39;
+    --card-fg: 243 244 246;
+    --border: 31 41 55;
+
+    --primary: 99 102 241;
+    --primary-fg: 255 255 255;
+
+    --danger: 239 68 68;
+    --danger-fg: 255 255 255;
+
+    --ring: 129 140 248;
+
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 1px 3px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 10px 15px rgb(0 0 0 / 0.5), 0 4px 6px rgb(0 0 0 / 0.4);
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-[rgb(var(--bg))] text-[rgb(var(--fg))] antialiased;
+    font-family:
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      Segoe UI,
+      Roboto,
+      Helvetica,
+      Arial,
+      Apple Color Emoji,
+      Segoe UI Emoji;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-[var(--radius-md)] border border-[rgb(var(--border))] bg-[rgb(var(--card))] text-[rgb(var(--card-fg))] shadow-[var(--shadow)];
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 text-sm font-medium text-[rgb(var(--fg))] shadow-[var(--shadow)] transition;
+    height: var(--btn-h);
+  }
+
+  .btn:hover {
+    @apply bg-black/5 dark:bg-white/5;
+  }
+
+  .btn:focus-visible {
+    @apply outline-none ring-2 ring-[rgb(var(--ring))] ring-offset-2 ring-offset-[rgb(var(--bg))];
+  }
+
+  .btn-sm {
+    @apply px-2.5 text-xs;
+    height: var(--btn-h-sm);
+  }
+
+  .btn-lg {
+    @apply px-4 text-base;
+    height: var(--btn-h-lg);
+  }
+
+  .btn-primary {
+    @apply border-transparent bg-[rgb(var(--primary))] text-[rgb(var(--primary-fg))];
+  }
+
+  .btn-primary:hover {
+    @apply brightness-95;
+  }
+
+  .btn-danger {
+    @apply border-transparent bg-[rgb(var(--danger))] text-[rgb(var(--danger-fg))];
+  }
+
+  .input {
+    @apply w-full rounded-[var(--radius-sm)] border border-[rgb(var(--border))] bg-[rgb(var(--card))] px-3 text-sm shadow-[var(--shadow)] outline-none transition;
+    height: var(--btn-h);
+  }
+
+  .input:focus {
+    @apply ring-2 ring-[rgb(var(--ring))] ring-offset-2 ring-offset-[rgb(var(--bg))];
+  }
+
+  .icon {
+    width: var(--icon);
+    height: var(--icon);
+  }
+
+  .icon-sm {
+    width: var(--icon-sm);
+    height: var(--icon-sm);
+  }
+
+  .icon-lg {
+    width: var(--icon-lg);
+    height: var(--icon-lg);
+  }
+}

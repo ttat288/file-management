@@ -1,0 +1,139 @@
+<div class="file-list-container" (click)="closeActions()">
+  <header class="page-header">
+    <div class="page-title">
+      <h2>File Library</h2>
+      <div class="page-subtitle">Browse, preview, rename, and download files</div>
+    </div>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">
+    {{ errorMessage }}
+  </div>
+
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+  </div>
+
+  <div class="toolbar">
+    <div class="search-container">
+      <input
+        type="text"
+        placeholder="Search files by name..."
+        [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearch($event)"
+        class="search-input"
+        [disabled]="isLoading"
+      />
+    </div>
+  </div>
+
+  <div *ngIf="isLoading && files.length === 0" class="loading">
+    <p>Loading...</p>
+  </div>
+
+  <div *ngIf="files.length > 0" class="table-container" (click)="$event.stopPropagation(); closeActions()">
+    <table class="files-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="size-header">Size</th>
+          <th class="type-header">Type</th>
+          <th class="date-header">Created</th>
+          <th class="actions-header">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let file of files" class="file-row">
+          <td class="name-cell">
+            <div *ngIf="renamingFileId !== file.id" class="file-name">
+              <span class="file-name-text" [title]="file.name">{{ file.name }}</span>
+            </div>
+            <div *ngIf="renamingFileId === file.id" class="rename-input-group" (click)="$event.stopPropagation()">
+              <input
+                type="text"
+                [(ngModel)]="newFileName"
+                class="rename-input"
+                placeholder="New file name"
+              />
+              <button class="btn btn-compact" (click)="saveRename(file.id)" [disabled]="isLoading">Save</button>
+              <button class="btn btn-compact btn-outline" (click)="cancelRename()" [disabled]="isLoading">Cancel</button>
+            </div>
+          </td>
+          <td class="size-cell">{{ formatFileSize(file.size) }}</td>
+          <td class="type-cell" [title]="file.contentType">{{ file.contentType }}</td>
+          <td class="date-cell">{{ formatDate(file.createdAt) }}</td>
+          <td class="actions-cell" (click)="$event.stopPropagation()">
+            <div class="actions-menu">
+              <button
+                class="btn btn-compact btn-outline"
+                (click)="$event.stopPropagation(); toggleActions(file.id)"
+                [disabled]="isLoading"
+                [attr.aria-expanded]="openActionsForFileId === file.id"
+              >
+                Actions
+              </button>
+
+              <div *ngIf="openActionsForFileId === file.id" class="actions-dropdown" role="menu">
+                <button
+                  *ngIf="isImage(file)"
+                  class="dropdown-item"
+                  (click)="openPreview(file); closeActions()"
+                  [disabled]="isLoading"
+                  role="menuitem"
+                >
+                  Preview
+                </button>
+                <button class="dropdown-item" (click)="downloadFile(file); closeActions()" [disabled]="isLoading" role="menuitem">
+                  Download
+                </button>
+                <button
+                  class="dropdown-item"
+                  (click)="startRename(file); closeActions()"
+                  [disabled]="isLoading || renamingFileId !== null"
+                  role="menuitem"
+                >
+                  Rename
+                </button>
+                <button class="dropdown-item danger" (click)="deleteFile(file.id, file.name); closeActions()" [disabled]="isLoading" role="menuitem">
+                  Delete
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div *ngIf="!isLoading && files.length === 0" class="no-files">
+    <p>No files found</p>
+  </div>
+
+  <div *ngIf="!isLoading && pagedResult && pagedResult.totalCount > 0" class="pagination">
+    <button (click)="previousPage()" [disabled]="!pagedResult.hasPreviousPage" class="btn btn-pagination">
+      ← Previous
+    </button>
+    <span class="page-info">
+      Page {{ pagedResult.pageNumber }} of {{ pagedResult.totalPages }} ({{ pagedResult.totalCount }} total)
+    </span>
+    <button (click)="nextPage()" [disabled]="!pagedResult.hasNextPage" class="btn btn-pagination">
+      Next →
+    </button>
+  </div>
+</div>
+
+<div *ngIf="previewFile" class="preview-backdrop" (click)="closePreview()">
+  <div class="preview-modal" (click)="$event.stopPropagation()">
+    <div class="preview-header">
+      <div class="preview-title" [title]="previewFile.name">{{ previewFile.name }}</div>
+      <button class="btn btn-compact btn-outline" (click)="closePreview()" title="Close">Close</button>
+    </div>
+    <div class="preview-body">
+      <div *ngIf="!previewUrl" class="loading">
+        <p>Loading...</p>
+      </div>
+      <img *ngIf="previewUrl" [src]="previewUrl" [alt]="previewFile.name" class="preview-image" />
+    </div>
+  </div>
+</div>
+

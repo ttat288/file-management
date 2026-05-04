@@ -1,0 +1,79 @@
+<div class="upload-container">
+  <h2>Upload File</h2>
+
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="alert alert-error">
+    {{ errorMessage }}
+  </div>
+
+  <!-- Success Message -->
+  <div *ngIf="successMessage" class="alert alert-success">
+    {{ successMessage }}
+  </div>
+
+  <!-- Drag and Drop Area -->
+  <div
+    class="drop-zone"
+    [class.dragging]="isDragging"
+    (dragover)="onDragOver($event)"
+    (dragleave)="onDragLeave($event)"
+    (drop)="onDrop($event)"
+  >
+    <div class="drop-zone-content">
+      <p>Drag and drop your file here</p>
+      <p class="or">or</p>
+      <label class="file-input-label">
+        Click to browse
+        <input
+          type="file"
+          (change)="onFileSelected($event)"
+          [disabled]="isUploading"
+          class="file-input"
+        />
+      </label>
+      <p class="file-size-info">Maximum file size: 100MB</p>
+    </div>
+  </div>
+
+  <!-- Selected File Info -->
+  <div *ngIf="selectedFile" class="selected-file">
+    <div class="file-info">
+      <span class="file-name">{{ selectedFile.name }}</span>
+      <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+    </div>
+  </div>
+
+  <!-- Upload Progress -->
+  <div *ngIf="uploadProgress.length > 0" class="upload-progress">
+    <div *ngFor="let progress of uploadProgress" class="progress-item">
+      <div class="progress-header">
+        <span class="progress-filename">{{ progress.fileName }}</span>
+        <span class="progress-percentage">{{ progress.progress }}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="progress.progress"></div>
+      </div>
+      <div *ngIf="progress.status === 'error'" class="progress-error">
+        {{ progress.error }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Button -->
+  <div class="button-group">
+    <button
+      (click)="uploadFiles()"
+      [disabled]="!selectedFile || isUploading"
+      class="btn btn-primary"
+    >
+      {{ isUploading ? 'Uploading...' : 'Upload' }}
+    </button>
+    <button
+      (click)="cancelUpload()"
+      [disabled]="!selectedFile && !isUploading"
+      class="btn btn-secondary"
+    >
+      Cancel
+    </button>
+  </div>
+</div>
