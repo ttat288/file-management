@@ -1,0 +1,144 @@
+# Root .gitignore for full web solution
+
+# Git metadata inside nested repositories
+**/.git/
+
+# Visual Studio / .NET
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.vcxproj.user
+*.vcxproj.filters
+*.dbmdl
+*.dbproj.schemaview
+
+# Build outputs
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
+**/bin/
+**/obj/
+*.dll
+*.exe
+*.app
+*.cache
+*.pdb
+*.zip
+*.tar
+*.7z
+
+# Rider
+.idea/
+*.sln.iml
+
+# NuGet
+*.nupkg
+packages/
+.nuget/packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ASP.NET Scaffolding
+ScaffoldingReadMe.txt
+
+# User-specific files
+*.dotCover
+*.suo
+*.user
+*.userprefs
+*.resharper
+_ReSharper*/
+*__pycache__*/
+
+# ASP.NET Core
+appsettings*.json
+appsettings.*.json
+secrets.json
+**/.env*
+
+# Test outputs
+test-results/
+
+# Entity Framework
+Migrations/**/ModelSnapshot.cs
+
+# Node.js / frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+pnpm-lock.yaml
+
+# Angular / frontend build
+/dist
+/tmp
+/out-tsc
+/bazel-out
+**/dist/
+**/out-tsc/
+**/coverage/
+**/.angular/
+
+# IDEs and editors
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/mcp.json
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.*.swp
+*~
+
+# Logs
+*.log
+logs/
+
+# Generated files
+*.db
+*.sql
+*.bak
+*.tmp
+*.cache
+*.log
+*.tsbuildinfo
+
+# Coverage reports
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# IIS Express
+/.vs/
+
+# Azure Functions / publish
+bin/Release/net*/publish/
+
+# Optional: keep .gitignore for nested projects
+!/.gitignore

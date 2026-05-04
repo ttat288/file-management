@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- Work around MSBuild restore-graph failures in some environments -->
+    <RestoreUseStaticGraphEvaluation>false</RestoreUseStaticGraphEvaluation>
+
+    <!-- Prevent restore/build failures when workload locator SDKs are missing -->
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+
+    <!-- Some constrained environments end up missing this inference and fail in ProcessFrameworkReferences -->
+    <NETCoreSdkRuntimeIdentifier Condition="'$(NETCoreSdkRuntimeIdentifier)' == ''">win-x64</NETCoreSdkRuntimeIdentifier>
+    <NetCoreRoot Condition="'$(NetCoreRoot)' == ''">C:\Program Files\dotnet\</NetCoreRoot>
+  </PropertyGroup>
+</Project>

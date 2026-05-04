@@ -1,0 +1,6 @@
+@FileManagement.Api_HostAddress = http://localhost:5188
+
+GET {{FileManagement.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
