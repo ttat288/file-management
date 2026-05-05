@@ -24,10 +24,11 @@ namespace FileManagement.Core.Interfaces
 
     public interface IAWSS3Service
     {
-        Task<(string Url, string Key)> UploadFileAsync(Core.Models.UploadFileRequest file, string? bucketName = null);
+        Task<(string Url, string Key)> UploadFileAsync(Core.Models.UploadFileRequest file, string? bucketName = null, string? keyPrefix = null);
         Task<bool> DeleteFileAsync(string fileKey, string? bucketName = null);
         Task<bool> DeleteRangeAsync(string[] fileKeys, string? bucketName = null);
         Task<string> CreateUploadUrlAsync(string fileKey, string contentType, string? bucketName = null, int expirationMinutes = 15);
+        Task<string> CreateFolderAsync(string folderKey, string? bucketName = null);
         Task<string> GetFileUrlAsync(
             string fileKey,
             string? bucketName = null,

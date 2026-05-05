@@ -66,8 +66,43 @@ export class FileService {
   }
 
   /**
-   * Get reliable Content-Type from file (fallback to extension-based detection)
+   * Batch upload multiple files sequentially
    */
+  uploadFileDirectBatch(files: File[], folderId?: string | null): Observable<void> {
+    return new Observable((subscriber) => {
+      let index = 0;
+      let failures = 0;
+
+      const uploadNext = () => {
+        if (index >= files.length) {
+          if (failures > 0) {
+            subscriber.error(new Error('One or more files failed to upload'));
+          } else {
+            subscriber.next();
+            subscriber.complete();
+          }
+          return;
+        }
+
+        const file = files[index];
+        index++;
+
+        this.uploadFileDirect(file, folderId).subscribe({
+          next: (event) => {
+            if ((event as any).type === 4) {
+              setTimeout(uploadNext, 100);
+            }
+          },
+          error: () => {
+            failures++;
+            setTimeout(uploadNext, 100);
+          },
+        });
+      };
+
+      uploadNext();
+    });
+  }
   private getContentType(file: File): string {
     if (file.type && file.type !== 'application/octet-stream') {
       return file.type;
@@ -175,7 +210,9 @@ export class FileService {
       switchMap((checkRes) => {
         if (!checkRes.success) throw new Error(checkRes.message || 'Failed to check file name');
 
-        const finalFileName = checkRes.data?.suggestedName || file.name;
+        const finalFileName = checkRes.data?.suggestedName || this.getFileBaseName(file.name);
+        const extension = this.getFileExtension(file.name);
+        const uploadFileName = extension ? `${finalFileName}.${extension}` : finalFileName;
 
         this.updateUploadProgress({
           fileName: finalFileName,
@@ -183,23 +220,43 @@ export class FileService {
           status: 'uploading',
         });
 
-        return this.createUploadUrl(finalFileName, contentType, folderId || undefined).pipe(
+        return this.createUploadUrl(uploadFileName, contentType, folderId || undefined).pipe(
           switchMap((res) => {
             if (!res.success || !res.data?.uploadUrl || !res.data?.key)
               throw new Error(res.message || 'Failed to create upload URL');
 
-            return from(
-              fetch(res.data.uploadUrl, {
-                method: 'PUT',
-                body: file,
-              }),
-            ).pipe(
-              switchMap((response) => {
-                if (!response.ok) {
-                  throw new Error('Upload to S3 failed');
-                }
+            const upload$ = new Observable<HttpEvent<any>>((subscriber) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open('PUT', res.data.uploadUrl, true);
+              xhr.setRequestHeader('Content-Type', contentType);
 
-                return this.createFileMetadata({
+              xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                  subscriber.next({
+                    type: HttpEventType.UploadProgress,
+                    loaded: event.loaded,
+                    total: event.total,
+                  } as HttpProgressEvent);
+                }
+              };
+
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  subscriber.complete();
+                } else {
+                  subscriber.error(new Error('Upload to S3 failed'));
+                }
+              };
+
+              xhr.onerror = () => subscriber.error(new Error('Upload to S3 failed'));
+              xhr.send(file);
+
+              return () => xhr.abort();
+            });
+
+            return upload$.pipe(
+              switchMap(() =>
+                this.createFileMetadata({
                   name: finalFileName,
                   key: res.data.key,
                   size: file.size,
@@ -213,8 +270,8 @@ export class FileService {
                         body: finalRes,
                       }) as any,
                   ),
-                );
-              }),
+                ),
+              ),
               tap(() => {
                 this.updateUploadProgress({
                   fileName: finalFileName,
@@ -331,7 +388,16 @@ export class FileService {
    * Get file extension
    */
   getFileExtension(filename: string): string {
-    return filename.slice(((filename.lastIndexOf('.') - 1) >>> 0) + 2);
+    const idx = filename.lastIndexOf('.');
+    return idx > 0 ? filename.slice(idx + 1) : '';
+  }
+
+  /**
+   * Get file base name without extension
+   */
+  getFileBaseName(filename: string): string {
+    const idx = filename.lastIndexOf('.');
+    return idx > 0 ? filename.slice(0, idx) : filename;
   }
 
   /**
@@ -339,6 +405,15 @@ export class FileService {
    */
   clearUploadProgress(): void {
     this.uploadProgressSubject.next([]);
+  }
+
+  /**
+   * Clear completed uploads (success/error)
+   */
+  clearCompletedUploads(): void {
+    const current = this.uploadProgressSubject.value;
+    const active = current.filter((p) => p.status === 'uploading');
+    this.uploadProgressSubject.next(active);
   }
 
   notifyFilesChanged(): void {

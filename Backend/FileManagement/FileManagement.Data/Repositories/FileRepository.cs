@@ -49,7 +49,9 @@ namespace FileManagement.Data.Repositories
                 await connection.OpenAsync();
 
                 var result = await connection.QueryAsync<dynamic>(
-                    "SELECT * FROM public.fn_file_create(@p_owner_id, @p_name, @p_size, @p_content_type, @p_blob_url, @p_blob_name, @p_folder_id)",
+                    @"INSERT INTO files (name, size, content_type, blob_url, blob_name, folder_id, owner_id)
+                      VALUES (@p_name, @p_size, @p_content_type, @p_blob_url, @p_blob_name, @p_folder_id, @p_owner_id)
+                      RETURNING id, name, size, content_type, blob_url, blob_name, folder_id, created_at",
                     new
                     {
                         p_owner_id = ownerId,

@@ -19,5 +19,6 @@ namespace FileManagement.Core.Interfaces
         Task<FolderDto?> GetByIdAsync(Guid ownerId, Guid folderId);
         Task<FolderDto?> RenameAsync(Guid ownerId, Guid folderId, string newName);
         Task<bool> DeleteAsync(Guid ownerId, Guid folderId);
+        Task<bool> HasContentsAsync(Guid ownerId, Guid folderId);
     }
 }

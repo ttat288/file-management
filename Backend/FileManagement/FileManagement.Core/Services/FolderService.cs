@@ -7,11 +7,13 @@ namespace FileManagement.Core.Services
     public class FolderService : IFolderService
     {
         private readonly IFolderRepository _folders;
+        private readonly IAWSS3Service _s3Service;
         private readonly ILogger<FolderService> _logger;
 
-        public FolderService(IFolderRepository folders, ILogger<FolderService> logger)
+        public FolderService(IFolderRepository folders, IAWSS3Service s3Service, ILogger<FolderService> logger)
         {
             _folders = folders;
+            _s3Service = s3Service;
             _logger = logger;
         }
 
@@ -25,6 +27,16 @@ namespace FileManagement.Core.Services
                 var created = await _folders.CreateAsync(ownerId, name.Trim(), parentId);
                 if (created == null)
                     return ApiResponse<FolderDto>.Error("Failed to create folder");
+
+                try
+                {
+                    var folderKey = $"{ownerId:N}/{created.Id:N}/";
+                    await _s3Service.CreateFolderAsync(folderKey);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to create S3 folder marker for folder {FolderId}", created.Id);
+                }
 
                 return ApiResponse<FolderDto>.Ok(created, "Folder created successfully");
             }
@@ -94,6 +106,11 @@ namespace FileManagement.Core.Services
         {
             try
             {
+                // Check if folder has contents (files or subfolders)
+                var hasContents = await _folders.HasContentsAsync(ownerId, folderId);
+                if (hasContents)
+                    return ApiResponse.Error("Cannot delete folder that contains files or subfolders. Please empty the folder first.");
+
                 var ok = await _folders.DeleteAsync(ownerId, folderId);
                 if (!ok)
                     return ApiResponse.Error("Folder not found");

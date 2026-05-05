@@ -8,8 +8,20 @@ import { ThemeService } from '../../services/theme.service';
 import { FileService } from '../../services/file.service';
 import { FolderService } from '../../services/folder.service';
 import { EventsService, RealtimeEvent } from '../../services/events.service';
-import { FileItem, PagedResult, ApiResponse } from '../../models/file.model';
+import { FileItem, PagedResult, ApiResponse, UploadProgress } from '../../models/file.model';
 import { FolderItem } from '../../models/folder.model';
+import { NotificationPopupComponent } from '../../components/notification-popup/notification-popup.component';
+
+type PopupDialog = {
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  showCancel?: boolean;
+  confirmVariant?: 'primary' | 'danger' | 'secondary';
+  onConfirm: () => void;
+  onCancel?: () => void;
+};
 
 type ModalState =
   | { kind: 'none' }
@@ -18,10 +30,19 @@ type ModalState =
   | { kind: 'rename_folder'; folder: FolderItem }
   | { kind: 'preview'; file: FileItem; url?: string | null };
 
+type DashboardRow = { kind: 'folder'; data: FolderItem } | { kind: 'file'; data: FileItem };
+
+type ToastMessage = {
+  id: string;
+  message: string;
+  type: 'success' | 'error' | 'info';
+  duration: number;
+};
+
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, NotificationPopupComponent],
   templateUrl: './dashboard-page.component.html',
 })
 export class DashboardPageComponent implements OnInit, OnDestroy {
@@ -39,8 +60,15 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
 
   modal: ModalState = { kind: 'none' };
   modalInput = '';
+  popup: PopupDialog | null = null;
   uploading = false;
   isDragging = false;
+
+  // New properties for multi-select and batch operations
+  selectedFiles = new Set<string>();
+  selectedAll = false;
+  uploadProgress: UploadProgress[] = [];
+  toasts: ToastMessage[] = [];
 
   private destroy$ = new Subject<void>();
 
@@ -62,8 +90,21 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
 
     this.filesApi.filesChanged$.pipe(takeUntil(this.destroy$)).subscribe(() => this.load());
 
+    // Subscribe to upload progress
+    this.filesApi.uploadProgress$.pipe(takeUntil(this.destroy$)).subscribe((progress) => {
+      this.uploadProgress = progress;
+      this.uploading = progress.some((p) => p.status === 'uploading');
+    });
+
     // Connect after refresh attempt
-    setTimeout(() => this.events.connect(() => this.auth.getAccessToken(), (e) => this.onRealtimeEvent(e)), 0);
+    setTimeout(
+      () =>
+        this.events.connect(
+          () => this.auth.getAccessToken(),
+          (e) => this.onRealtimeEvent(e),
+        ),
+      0,
+    );
   }
 
   ngOnDestroy(): void {
@@ -122,6 +163,20 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
     this.modalInput = '';
   }
 
+  onPopupConfirm(): void {
+    if (!this.popup) return;
+    const confirmAction = this.popup.onConfirm;
+    this.popup = null;
+    confirmAction();
+  }
+
+  onPopupCancel(): void {
+    if (!this.popup) return;
+    const cancelAction = this.popup.onCancel;
+    this.popup = null;
+    if (cancelAction) cancelAction();
+  }
+
   submitModal(): void {
     const value = this.modalInput.trim();
     if (!value) return;
@@ -164,25 +219,47 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
   }
 
   deleteFolder(folder: FolderItem): void {
-    if (!confirm(`Delete folder "${folder.name}"? This will also remove subfolders.`)) return;
-    this.foldersApi.deleteFolder(folder.id).subscribe({
-      next: (res) => {
-        if (!res.success) this.error = res.message || 'Failed to delete folder';
-        this.load();
+    this.popup = {
+      title: 'Delete folder',
+      message: `Delete folder "${folder.name}"? This will also remove subfolders.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      showCancel: true,
+      confirmVariant: 'danger',
+      onConfirm: () => {
+        this.foldersApi.deleteFolder(folder.id).subscribe({
+          next: (res) => {
+            if (!res.success) this.error = res.message || 'Failed to delete folder';
+            this.load();
+          },
+          error: (e) => (this.error = e?.message || 'Failed to delete folder'),
+        });
       },
-      error: (e) => (this.error = e?.message || 'Failed to delete folder'),
-    });
+    };
   }
 
   deleteFile(file: FileItem): void {
-    if (!confirm(`Delete file "${file.name}"?`)) return;
-    this.filesApi.deleteFile(file.id).subscribe({
-      next: (res: ApiResponse<any>) => {
-        if (!res.success) this.error = res.message || 'Failed to delete file';
-        this.load();
+    this.popup = {
+      title: 'Delete file',
+      message: `Delete file "${file.name}"?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      showCancel: true,
+      confirmVariant: 'danger',
+      onConfirm: () => {
+        this.filesApi.deleteFile(file.id).subscribe({
+          next: (res: ApiResponse<any>) => {
+            if (!res.success) this.error = res.message || 'Xóa file thất bại';
+            else this.showToast(`Xóa thành công "${file.name}"`, 'success');
+            this.load();
+          },
+          error: (e) => {
+            this.error = e?.message || 'Xóa file thất bại';
+            this.showToast('Xóa file thất bại', 'error');
+          },
+        });
       },
-      error: (e) => (this.error = e?.message || 'Failed to delete file'),
-    });
+    };
   }
 
   downloadFile(file: FileItem): void {
@@ -207,16 +284,60 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  get rows(): DashboardRow[] {
+    return [
+      ...this.folders.map((folder) => ({ kind: 'folder' as const, data: folder })),
+      ...this.files.map((file) => ({ kind: 'file' as const, data: file })),
+    ];
+  }
+
+  get rowCount(): number {
+    return this.rows.length;
+  }
+
   isPreviewable(file: FileItem): boolean {
     const ct = file.contentType || '';
     return ct.startsWith('image/') || ct.startsWith('video/') || ct.includes('pdf');
   }
 
+  isImage(file: FileItem): boolean {
+    const ct = file.contentType || '';
+    return ct.startsWith('image/');
+  }
+
+  isRowClickable(row: DashboardRow): boolean {
+    return row.kind === 'folder' || (row.kind === 'file' && this.isImage(row.data));
+  }
+
+  getRowTypeLabel(row: DashboardRow): string {
+    if (row.kind === 'folder') return 'Folder';
+    if (this.isImage(row.data)) return 'Image';
+    return 'File';
+  }
+
+  getRowActionTitle(row: DashboardRow): string {
+    return row.kind === 'folder'
+      ? 'Open folder'
+      : this.isImage(row.data)
+        ? 'Preview image'
+        : 'No action available';
+  }
+
+  onRowNameClick(row: DashboardRow): void {
+    if (row.kind === 'folder') {
+      this.openFolder(row.data);
+      return;
+    }
+
+    if (row.kind === 'file' && this.isImage(row.data)) {
+      this.openPreview(row.data);
+    }
+  }
+
   onFileInput(ev: Event): void {
     const input = ev.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-    this.upload(file);
+    const files = Array.from(input.files || []);
+    if (files.length > 0) this.uploadBatch(files);
     input.value = '';
   }
 
@@ -236,8 +357,148 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
     ev.preventDefault();
     ev.stopPropagation();
     this.isDragging = false;
-    const file = ev.dataTransfer?.files?.[0];
-    if (file) this.upload(file);
+    const files = Array.from(ev.dataTransfer?.files || []);
+    if (files.length > 0) this.uploadBatch(files);
+  }
+
+  // Multi-select methods
+  toggleSelectAll(): void {
+    if (this.selectedAll) {
+      this.selectedFiles.clear();
+    } else {
+      this.files.forEach((file) => this.selectedFiles.add(file.id));
+    }
+    this.selectedAll = !this.selectedAll;
+  }
+
+  toggleSelectFile(fileId: string): void {
+    if (this.selectedFiles.has(fileId)) {
+      this.selectedFiles.delete(fileId);
+    } else {
+      this.selectedFiles.add(fileId);
+    }
+    this.selectedAll = this.selectedFiles.size === this.files.length;
+  }
+
+  isSelected(fileId: string): boolean {
+    return this.selectedFiles.has(fileId);
+  }
+
+  getSelectedCount(): number {
+    return this.selectedFiles.size;
+  }
+
+  clearSelection(): void {
+    this.selectedFiles.clear();
+    this.selectedAll = false;
+  }
+
+  // Batch delete
+  deleteSelectedFiles(): void {
+    const selectedIds = Array.from(this.selectedFiles);
+    if (selectedIds.length === 0) return;
+
+    this.popup = {
+      title: 'Delete files',
+      message: `Delete ${selectedIds.length} selected file(s)?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      showCancel: true,
+      confirmVariant: 'danger',
+      onConfirm: () => {
+        this.performBatchDelete(selectedIds);
+      },
+    };
+  }
+
+  private performBatchDelete(fileIds: string[]): void {
+    this.error = '';
+    let completed = 0;
+    let errors = 0;
+
+    fileIds.forEach((id) => {
+      this.filesApi.deleteFile(id).subscribe({
+        next: (res: ApiResponse<any>) => {
+          completed++;
+          if (!res.success) {
+            errors++;
+            this.error = res.message || 'Failed to delete some files';
+          }
+          if (completed === fileIds.length) {
+            this.clearSelection();
+            this.load();
+            if (errors === 0) {
+              this.showToast(`Xóa thành công ${fileIds.length} files`, 'success');
+            } else if (errors < fileIds.length) {
+              this.showToast(
+                `Đã xóa ${fileIds.length - errors} files, ${errors} thất bại`,
+                'error',
+              );
+            } else {
+              this.showToast('Xóa file thất bại', 'error');
+            }
+          }
+        },
+        error: (e) => {
+          completed++;
+          errors++;
+          if (completed === fileIds.length) {
+            this.clearSelection();
+            this.load();
+            this.showToast('Some files failed to delete', 'error');
+          }
+        },
+      });
+    });
+  }
+
+  // Batch upload
+  private uploadBatch(files: File[]): void {
+    this.error = '';
+    this.uploading = true;
+    this.filesApi.clearUploadProgress();
+
+    this.filesApi.uploadFileDirectBatch(files, this.currentFolderId).subscribe({
+      next: () => {
+        this.uploading = false;
+        const successMessage =
+          files.length === 1
+            ? `Upload thành công ${files[0].name}`
+            : `Upload thành công ${files.length} files`;
+        this.showToast(successMessage, 'success');
+        // Clear completed uploads after a delay
+        setTimeout(() => this.filesApi.clearCompletedUploads(), 3000);
+        this.load();
+      },
+      error: (e) => {
+        this.uploading = false;
+        this.showToast('Upload một số file thất bại', 'error');
+        setTimeout(() => this.filesApi.clearCompletedUploads(), 5000);
+        this.load();
+      },
+    });
+  }
+
+  // Toast notifications
+  private showToast(
+    message: string,
+    type: 'success' | 'error' | 'info' = 'info',
+    duration = 3000,
+  ): void {
+    const toast: ToastMessage = {
+      id: Date.now().toString(),
+      message,
+      type,
+      duration,
+    };
+    this.toasts.push(toast);
+    setTimeout(() => {
+      this.toasts = this.toasts.filter((t) => t.id !== toast.id);
+    }, duration);
+  }
+
+  removeToast(id: string): void {
+    this.toasts = this.toasts.filter((t) => t.id !== id);
   }
 
   private upload(file: File): void {
@@ -258,6 +519,7 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
   private load(): void {
     this.isLoading = true;
     this.error = '';
+    this.clearSelection(); // Clear selection when loading new data
 
     const folderId = this.currentFolderId;
     const term = this.search.trim();
@@ -269,7 +531,9 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
       error: () => {},
     });
 
-    const req$ = term ? this.filesApi.searchFiles(term, folderId || undefined, 1, 100) : this.filesApi.getFiles(folderId || undefined, 1, 100);
+    const req$ = term
+      ? this.filesApi.searchFiles(term, folderId || undefined, 1, 100)
+      : this.filesApi.getFiles(folderId || undefined, 1, 100);
     req$.subscribe({
       next: (res: ApiResponse<PagedResult<FileItem>>) => {
         this.isLoading = false;
@@ -284,7 +548,8 @@ export class DashboardPageComponent implements OnInit, OnDestroy {
   }
 
   private onRealtimeEvent(e: RealtimeEvent): void {
-    if (e.type.endsWith('_created') || e.type.endsWith('_deleted') || e.type.endsWith('_renamed')) this.load();
+    if (e.type.endsWith('_created') || e.type.endsWith('_deleted') || e.type.endsWith('_renamed'))
+      this.load();
   }
 
   @HostListener('document:keydown.escape')

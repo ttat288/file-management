@@ -27,7 +27,7 @@ namespace FileManagement.Data.Services
             _usePublicReadAcl = bool.TryParse(configuration["AWSS3:UsePublicReadAcl"], out var v) && v;
         }
 
-        public async Task<(string Url, string Key)> UploadFileAsync(UploadFileRequest file, string? bucketName = null)
+        public async Task<(string Url, string Key)> UploadFileAsync(UploadFileRequest file, string? bucketName = null, string? keyPrefix = null)
         {
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File is empty", nameof(file));
@@ -40,7 +40,10 @@ namespace FileManagement.Data.Services
             bucketName ??= _bucketName;
 
             var fileExtension = Path.GetExtension(file.FileName);
-            var s3Key = $"{Guid.NewGuid():N}{fileExtension}";
+            var baseKey = $"{Guid.NewGuid():N}{fileExtension}";
+            var s3Key = string.IsNullOrWhiteSpace(keyPrefix)
+                ? baseKey
+                : $"{keyPrefix.TrimEnd('/')}/{baseKey}";
 
             var uploadRequest = new PutObjectRequest
             {
@@ -136,6 +139,7 @@ namespace FileManagement.Data.Services
                 Key = fileKey,
                 Verb = HttpVerb.PUT,
                 Expires = DateTime.UtcNow.AddMinutes(expirationMinutes),
+                ContentType = normalizedContentType,
                 // Ensure the browser-sent Content-Type is part of the signature to avoid
                 // mismatches/redirects that can surface as opaque 400s from S3.
                 Protocol = Protocol.HTTPS
@@ -143,6 +147,32 @@ namespace FileManagement.Data.Services
 
             var url = _s3Client.GetPreSignedURL(request);
             return Task.FromResult(url);
+        }
+
+        public async Task<string> CreateFolderAsync(string folderKey, string? bucketName = null)
+        {
+            if (string.IsNullOrWhiteSpace(folderKey))
+                throw new ArgumentException("Folder key is required", nameof(folderKey));
+
+            bucketName ??= _bucketName;
+            var normalizedKey = folderKey.TrimEnd('/') + "/";
+
+            var request = new PutObjectRequest
+            {
+                BucketName = bucketName,
+                Key = normalizedKey,
+                ContentBody = string.Empty,
+                ContentType = "application/x-directory"
+            };
+
+            if (_usePublicReadAcl)
+                request.CannedACL = S3CannedACL.PublicRead;
+
+            await _s3Client.PutObjectAsync(request);
+
+            var s3Url = $"https://{bucketName}.s3.{_region}.amazonaws.com/{normalizedKey}";
+            _logger.LogInformation("Created S3 folder placeholder. Key={Key} Url={Url}", normalizedKey, s3Url);
+            return s3Url;
         }
 
         public async Task<string> GetFileUrlAsync(

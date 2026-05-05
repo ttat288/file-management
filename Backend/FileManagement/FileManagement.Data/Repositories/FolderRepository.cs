@@ -149,18 +149,47 @@ namespace FileManagement.Data.Repositories
                 using var connection = CreateConnection();
                 await connection.OpenAsync();
 
-                var result = await connection.QueryAsync<dynamic>(
-                    "SELECT * FROM public.fn_folder_delete(@p_owner_id, @p_folder_id)",
-                    new { p_owner_id = ownerId, p_folder_id = folderId }
+                var deletedId = await connection.QuerySingleOrDefaultAsync<Guid?>(
+                    "DELETE FROM folders WHERE owner_id = @ownerId AND id = @folderId RETURNING id",
+                    new { ownerId, folderId }
                 );
 
-                var row = result.FirstOrDefault();
-                return row != null && (bool)row.success;
+                return deletedId.HasValue;
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error deleting folder: {ex.Message}");
-                throw PostgresErrorMapper.MapOrSame(ex, "public.fn_folder_delete(uuid, uuid)", "Database/02_create_functions.sql");
+                throw;
+            }
+        }
+
+        public async Task<bool> HasContentsAsync(Guid ownerId, Guid folderId)
+        {
+            try
+            {
+                using var connection = CreateConnection();
+                await connection.OpenAsync();
+
+                // Check for files in the folder
+                var fileCount = await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM files WHERE owner_id = @ownerId AND folder_id = @folderId",
+                    new { ownerId, folderId }
+                );
+
+                if (fileCount > 0) return true;
+
+                // Check for subfolders
+                var subfolderCount = await connection.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM folders WHERE owner_id = @ownerId AND parent_id = @folderId",
+                    new { ownerId, folderId }
+                );
+
+                return subfolderCount > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error checking folder contents: {ex.Message}");
+                throw;
             }
         }
     }

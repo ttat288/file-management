@@ -8,6 +8,7 @@ using FileManagement.Data.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 using System.Text;
 
 static void LoadDotEnvFromParents(string fileName = ".env", int maxDepth = 4)
@@ -223,6 +224,30 @@ builder.Services.AddLogging(config =>
 
 // ========== Build Application ==========
 var app = builder.Build();
+
+// ========== Initialize Database ==========
+try
+{
+    var dbConnectionString = builder.Configuration.GetConnectionString("PostgreSQL");
+    if (!string.IsNullOrWhiteSpace(dbConnectionString))
+    {
+        var sqlScriptPath = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "Database", "02_create_functions.sql");
+        if (File.Exists(sqlScriptPath))
+        {
+            var sqlScript = await File.ReadAllTextAsync(sqlScriptPath);
+            using var connection = new Npgsql.NpgsqlConnection(dbConnectionString);
+            await connection.OpenAsync();
+            using var command = new Npgsql.NpgsqlCommand(sqlScript, connection);
+            command.CommandTimeout = 30;
+            await command.ExecuteNonQueryAsync();
+            await connection.CloseAsync();
+        }
+    }
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning($"Database initialization warning: {ex.Message}");
+}
 
 // ========== Middleware ==========
 if (app.Environment.IsDevelopment())

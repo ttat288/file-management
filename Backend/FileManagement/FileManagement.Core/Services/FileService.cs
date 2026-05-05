@@ -2,6 +2,7 @@ using FileManagement.Core.Interfaces;
 using FileManagement.Core.Models;
 using Microsoft.Extensions.Logging;
 using System;
+using System.IO;
 using System.Linq;
 
 namespace FileManagement.Core.Services
@@ -37,13 +38,14 @@ namespace FileManagement.Core.Services
 
                 _logger.LogInformation($"Starting file upload: {file.FileName}");
 
-                // Upload to S3
-                var (s3Url, s3Key) = await _s3Service.UploadFileAsync(file);
+                // Upload to S3 with a folder-aware prefix so uploaded files are grouped by user and folder.
+                var keyPrefix = folderId.HasValue ? $"{ownerId:N}/{folderId.Value:N}" : $"{ownerId:N}";
+                var (s3Url, s3Key) = await _s3Service.UploadFileAsync(file, keyPrefix: keyPrefix);
 
                 // Save file metadata to database
                 var fileDto = await _fileRepository.CreateAsync(
                     ownerId: ownerId,
-                    name: file.FileName,
+                    name: Path.GetFileNameWithoutExtension(file.FileName),
                     size: file.Length,
                     contentType: file.ContentType ?? "application/octet-stream",
                     blobUrl: s3Url,
@@ -78,7 +80,8 @@ namespace FileManagement.Core.Services
                 if (size <= 0)
                     return ApiResponse<FileDto>.Error("Invalid file size");
 
-                var fileDto = await _fileRepository.CreateAsync(ownerId, name.Trim(), size, contentType, blobUrl, blobName, folderId);
+                var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(name.Trim());
+                var fileDto = await _fileRepository.CreateAsync(ownerId, fileNameWithoutExtension, size, contentType, blobUrl, blobName, folderId);
                 if (fileDto == null)
                     return ApiResponse<FileDto>.Error("Failed to save file metadata");
 
@@ -180,7 +183,9 @@ namespace FileManagement.Core.Services
                 {
                     contentType = file.ContentType;
 
-                    var safeFileName = (file.Name ?? "file").Replace("\"", "").Replace("\r", "").Replace("\n", "");
+                    var extension = Path.GetExtension(file.BlobName ?? "");
+                    var fullFileName = string.IsNullOrWhiteSpace(extension) ? file.Name : $"{file.Name}{extension}";
+                    var safeFileName = fullFileName.Replace("\"", "").Replace("\r", "").Replace("\n", "");
                     contentDisposition = $"attachment; filename=\"{safeFileName}\"";
                 }
 
@@ -206,10 +211,11 @@ namespace FileManagement.Core.Services
                 if (string.IsNullOrWhiteSpace(newName))
                     return ApiResponse<FileDto>.Error("New name cannot be empty");
 
-                if (newName.Length > 255)
+                var normalizedNewName = Path.GetFileNameWithoutExtension(newName.Trim());
+                if (normalizedNewName.Length > 255)
                     return ApiResponse<FileDto>.Error("File name cannot exceed 255 characters");
 
-                var file = await _fileRepository.RenameAsync(ownerId, fileId, newName.Trim());
+                var file = await _fileRepository.RenameAsync(ownerId, fileId, normalizedNewName);
                 if (file == null)
                     return ApiResponse<FileDto>.Error("File not found or rename failed");
 

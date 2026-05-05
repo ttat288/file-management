@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using FileManagement.Core.Interfaces;
 using FileManagement.Core.Models;
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using FileManagement.Api.Auth;
 using Microsoft.AspNetCore.Authorization;
@@ -65,7 +66,8 @@ namespace FileManagement.Api.Controllers
                 return BadRequest(ApiResponse<CreateUploadUrlResponse>.Error("FileName is required"));
 
             var ext = Path.GetExtension(req.FileName);
-            var key = $"{ownerId:N}/{Guid.NewGuid():N}{ext}";
+            var folderSegment = req.FolderId.HasValue ? $"{req.FolderId.Value:N}/" : string.Empty;
+            var key = $"{ownerId:N}/{folderSegment}{Guid.NewGuid():N}{ext}";
 
             try
             {
@@ -113,7 +115,7 @@ namespace FileManagement.Api.Controllers
                 // Extract base name (without extension) from request
                 var requestBaseNameWithoutExt = Path.GetFileNameWithoutExtension(req.FileName);
 
-                // Check if file with same BASE NAME exists (regardless of extension)
+                // Check if file with same base name exists
                 var existingFile = allFiles.FirstOrDefault(f =>
                 {
                     var existingBaseName = Path.GetFileNameWithoutExtension(f.Name);
@@ -121,22 +123,19 @@ namespace FileManagement.Api.Controllers
                 });
 
                 if (existingFile == null)
-                    return Ok(ApiResponse<CheckFileNameResponse>.Ok(new CheckFileNameResponse(false, req.FileName)));
+                    return Ok(ApiResponse<CheckFileNameResponse>.Ok(new CheckFileNameResponse(false, requestBaseNameWithoutExt)));
 
-                // File with same base name exists, generate new name like "file (1).xml" or "file (1)" if no extension
-                var ext = Path.GetExtension(req.FileName);
-                var suggestedName = req.FileName;
+                var suggestedName = requestBaseNameWithoutExt;
                 var counter = 1;
 
-                // Keep incrementing until we find a name that doesn't exist (check by base name)
+                // Keep incrementing until we find a name that doesn't exist by base name
                 while (allFiles.Any(f =>
                 {
                     var baseNameToCheck = Path.GetFileNameWithoutExtension(f.Name);
-                    var suggestedBaseName = Path.GetFileNameWithoutExtension(suggestedName);
-                    return baseNameToCheck.Equals(suggestedBaseName, StringComparison.OrdinalIgnoreCase);
+                    return baseNameToCheck.Equals(suggestedName, StringComparison.OrdinalIgnoreCase);
                 }))
                 {
-                    suggestedName = $"{requestBaseNameWithoutExt} ({counter}){ext}";
+                    suggestedName = $"{requestBaseNameWithoutExt} ({counter})";
                     counter++;
                 }
 
