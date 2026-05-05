@@ -124,6 +124,8 @@ logs/
 *.tmp
 *.cache
 *.log
+*.diag.txt
+restore*.txt
 *.tsbuildinfo
 
 # Coverage reports
