@@ -1,268 +1,144 @@
-# File Management System - Full-Stack Application
+# File Management System
 
-A production-like file management system built with Angular, ASP.NET Core, PostgreSQL, and Cloudinary.
+This repository contains a full-stack file management application. The project combines an Angular frontend, an ASP.NET Core backend, PostgreSQL database scripts, and AWS S3 for file storage.
 
-## 🏗 Architecture
+## Architecture
 
-```
-Frontend (Angular)
-    ↓
-API Gateway (ASP.NET Core Web API)
-    ↓
-Services Layer (Dapper + PostgreSQL Functions)
-    ↓
-PostgreSQL Database
-    ↓
-Cloudinary (File Storage)
-```
+The application is implemented as a three-tier solution:
 
-## 🛠 Tech Stack
+- Angular frontend: single-page application
+- ASP.NET Core backend: REST API and business logic
+- PostgreSQL: relational metadata storage
+- AWS S3: object storage for uploaded files
 
-- **Frontend**: Angular (standalone components, SCSS)
-- **Backend**: ASP.NET Core 8 Web API
-- **Database**: PostgreSQL with custom functions
-- **ORM**: Dapper (lightweight, raw SQL)
-- **File Storage**: Cloudinary
-- **API Pattern**: RESTful with consistent response format
+## Technology stack
 
-## 📋 Prerequisites
+- Frontend: Angular
+- Backend: ASP.NET Core 8
+- Database: PostgreSQL
+- Data access: Dapper
+- File storage: AWS S3
+- Authentication: JWT with refresh tokens
+
+## Prerequisites
 
 - .NET 8 SDK
-- Node.js 18+ and npm
-- PostgreSQL 12+
-- Cloudinary account (free tier available)
+- Node.js 18 or later
+- PostgreSQL 12 or later
+- AWS credentials with access to an S3 bucket
 - Git
 
-## 🚀 Quick Start
-
-### 1. Database Setup
-
-```bash
-# Connect to PostgreSQL
-psql -U postgres -h localhost
-
-# Create database
-CREATE DATABASE file_management;
-
-# Connect to the new database
-\c file_management
-
-# Run schema scripts
-\i Database/01_create_tables.sql
-\i Database/02_create_functions.sql
-
-# Verify tables
-\dt  # List tables
-\df  # List functions
-```
-
-### 2. Backend Setup
-
-```bash
-# Navigate to backend
-cd Backend/FileManagement/FileManagement.Api
-
-# Restore NuGet packages
-dotnet restore
-
-# Configure appsettings
-# Edit appsettings.json with your:
-# - PostgreSQL connection string
-# - Cloudinary credentials
-
-# Run migrations (if using Entity Framework - NOT USED HERE)
-# All data operations go through PostgreSQL functions
-
-# Start backend
-dotnet run
-# API runs on https://localhost:5001 and http://localhost:5000
-```
-
-### 3. Frontend Setup
-
-```bash
-# Navigate to frontend
-cd Frontend/file-management-fe
-
-# Install dependencies
-npm install
-
-# Configure API URL
-# Update src/app/services/file.service.ts with backend API URL
-
-# Start development server
-ng serve
-# Frontend runs on http://localhost:4200
-```
-
-## 📦 Project Structure
-
-### Backend
-
-```
-FileManagement.Api/
-├── Controllers/
-│   └── FilesController.cs          # API endpoints
-├── Services/
-│   ├── FileService.cs               # Business logic
-│   └── CloudinaryService.cs         # File storage integration
-├── Data/
-│   └── FileRepository.cs            # Database access via Dapper
-├── Models/
-│   └── FileDto.cs                  # DTOs and API models
-├── Program.cs                       # DI configuration
-└── appsettings.json                # Configuration
-```
-
-### Frontend
-
-```
-src/app/
-├── components/
-│   ├── file-upload/
-│   │   ├── file-upload.component.ts
-│   │   ├── file-upload.component.html
-│   │   └── file-upload.component.scss
-│   └── file-list/
-│       ├── file-list.component.ts
-│       ├── file-list.component.html
-│       └── file-list.component.scss
-├── services/
-│   └── file.service.ts             # API integration
-├── models/
-│   └── file.model.ts               # TypeScript models
-├── app.ts                          # Main component
-└── app.html                        # Main template
-```
+## Setup
 
 ### Database
 
-```
-Database/
-├── 01_create_tables.sql            # Schema
-└── 02_create_functions.sql         # PostgreSQL functions
-```
+1. Open `Backend/FileManagement/FileManagement.Api/appsettings.json` or environment configuration.
+2. Configure the PostgreSQL connection string under `ConnectionStrings:PostgreSQL`.
+3. Run the database scripts in order:
+   - `Database/01_create_tables.sql`
+   - `Database/02_create_functions.sql`
 
-## 🔌 API Endpoints
+### Backend
 
-All responses follow this format:
+1. Change directory to `Backend/FileManagement/FileManagement.Api`.
+2. Restore dependencies:
+   ```bash
+   dotnet restore
+   ```
 
-```json
-{
-  "success": true,
-  "data": { ... },
-  "message": "Success message"
-}
-```
+````
+3. Configure AWS S3 credentials and bucket settings in `appsettings.json` or via user secrets:
+   - `AWSS3:AccessKeyId`
+   - `AWSS3:SecretAccessKey`
+   - `AWSS3:Region`
+   - `AWSS3:BucketName`
+   - optional: `AWSS3:UsePublicReadAcl`
+4. Start the backend service:
+   ```bash
+dotnet run
+````
+
+The backend listens on local ASP.NET Core ports, typically `https://localhost:5001` and `http://localhost:5000`.
+
+### Frontend
+
+1. Change directory to `Frontend/file-management-fe`.
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+````
+3. Start the development server:
+   ```bash
+ng serve
+````
+
+4. Open the application in a browser at `http://localhost:4200`.
+
+If necessary, configure the backend base URL in the Angular environment settings.
+
+## Project structure
+
+- `Backend/FileManagement/FileManagement.Api`: API implementation, controllers, and dependency injection
+- `Backend/FileManagement/FileManagement.Core`: business logic and service interfaces
+- `Backend/FileManagement/FileManagement.Data`: repository and storage implementations including AWS S3 service
+- `Database`: SQL definitions and function scripts
+- `Frontend/file-management-fe`: Angular client application
+
+## API endpoints
+
+### Authentication
+
+- `POST /api/auth/register` — register a new user
+- `POST /api/auth/login` — authenticate and obtain access/refresh tokens
+- `POST /api/auth/refresh` — rotate and renew JWT tokens
 
 ### Files
 
-| Method | Endpoint                 | Description            |
-| ------ | ------------------------ | ---------------------- |
-| POST   | `/api/files/upload`      | Upload file            |
-| GET    | `/api/files`             | List files (paginated) |
-| GET    | `/api/files/{id}`        | Get file details       |
-| PUT    | `/api/files/{id}/rename` | Rename file            |
-| DELETE | `/api/files/{id}`        | Delete file            |
-| GET    | `/api/files/search`      | Search files by name   |
-| POST   | `/api/files/upload-url`  | Presigned PUT URL (S3) |
-| POST   | `/api/files`             | Save metadata (S3 key) |
-
-### Auth (JWT + Refresh)
-
-> Most endpoints require `Authorization: Bearer <accessToken>`.
-
-| Method | Endpoint             | Description |
-| ------ | -------------------- | ----------- |
-| POST   | `/api/auth/register` | Register    |
-| POST   | `/api/auth/login`    | Login       |
-| POST   | `/api/auth/refresh`  | Refresh JWT |
+- `POST /api/files/upload` — upload a file via multipart form data
+- `POST /api/files/upload-url` — request a presigned S3 PUT URL
+- `POST /api/files` — save uploaded file metadata after direct S3 upload
+- `GET /api/files` — list files with optional pagination and folder filter
+- `GET /api/files/{id}` — retrieve file metadata
+- `GET /api/files/{id}/url` — obtain a presigned download/view URL
+- `PUT /api/files/{id}/rename` — rename a file
+- `DELETE /api/files/{id}` — delete a file
+- `GET /api/files/search` — search files by name
 
 ### Folders
 
-| Method | Endpoint                    | Description   |
-| ------ | --------------------------- | ------------- |
-| GET    | `/api/folders?parentId=...` | List folders  |
-| POST   | `/api/folders`              | Create folder |
-| PUT    | `/api/folders/{id}/rename`  | Rename folder |
-| DELETE | `/api/folders/{id}`         | Delete folder |
+- `GET /api/folders` — list folders
+- `POST /api/folders` — create a folder
+- `PUT /api/folders/{id}/rename` — rename a folder
+- `DELETE /api/folders/{id}` — delete a folder
 
-### Realtime (SSE)
+### Realtime
 
-| Method | Endpoint             | Description |
-| ------ | -------------------- | ----------- |
-| GET    | `/api/events/stream` | Live events |
+- `GET /api/events/stream` — subscribe to server-sent events
 
-### Query Parameters
+## Configuration notes
 
-**Pagination**:
+The current implementation uses AWS S3 as the file storage provider. The backend enforces AWS Signature Version 4 for presigned URLs and organizes object keys by user and folder.
 
-- `pageNumber` (default: 1)
-- `pageSize` (default: 20, max: 100)
+Requests requiring authentication expect the `Authorization: Bearer <accessToken>` header.
 
-**Filtering**:
+## Database scripts
 
-- `folderId` (UUID, optional)
+- `Database/01_create_tables.sql`
+- `Database/02_create_functions.sql`
 
-**Search**:
+Other SQL files in the repository are present for migration history. The current deployment flow uses the scripts above.
 
-- `searchTerm` (string, case-insensitive)
+## Important detail
 
-### Examples
+This repository is configured for AWS S3 storage. References to other object storage providers are legacy and not part of the current deployment flow.
 
-```bash
-# Upload file
-curl -X POST http://localhost:5000/api/files/upload \
-  -F "file=@image.jpg" \
-  -H "Content-Type: multipart/form-data"
-
-# Get files (page 1, 20 items)
-curl http://localhost:5000/api/files?pageNumber=1&pageSize=20
-
-# Search files
-curl "http://localhost:5000/api/files/search?searchTerm=invoice"
-
-# Delete file
-curl -X DELETE http://localhost:5000/api/files/{fileId}
-```
-
-## 🗄 Database Schema
-
-### Tables
-
-**files**
-
-- `id` (UUID, PK)
-- `name` (VARCHAR 255)
-- `size` (BIGINT, bytes)
-- `content_type` (VARCHAR 100)
-- `cloudinary_url` (TEXT)
-- `public_id` (VARCHAR 255, unique)
-- `folder_id` (UUID, FK, nullable)
-- `created_at` (TIMESTAMP)
-
-**folders**
-
-- `id` (UUID, PK)
-- `name` (VARCHAR 255)
-- `parent_id` (UUID, FK, nullable)
-- `created_at` (TIMESTAMP)
-
-### PostgreSQL Functions
-
-All data access happens through functions:
-
-- `fn_file_create()` - Create file with Cloudinary metadata
-- `fn_file_get_list()` - Paginated file list with folder filtering
-- `fn_file_get_by_id()` - Get single file
-- `fn_file_rename()` - Rename file
-- `fn_file_delete()` - Delete file, returns public_id for Cloudinary cleanup
-- `fn_file_search()` - Search with pagination
 - `fn_folder_create()` - Create folder
 - `fn_folder_get_list()` - List folders with parent filter
 - `fn_folder_delete()` - Delete folder (cascades to files)
 
-## ☁️ Cloudinary Integration
+## Cloudinary Integration
 
 ### Features
 
@@ -291,7 +167,7 @@ All data access happens through functions:
 }
 ```
 
-## 🛡️ Validation & Error Handling
+## Validation & Error Handling
 
 ### Backend Validation
 
@@ -317,7 +193,7 @@ All data access happens through functions:
 }
 ```
 
-## 🔄 Data Flow
+## Data Flow
 
 ### Upload Flow
 
@@ -338,7 +214,7 @@ All data access happens through functions:
 5. Backend: Return success
 6. Frontend: Refresh list
 
-## 🧪 Testing API
+## Testing API
 
 ### Using Swagger
 
@@ -366,7 +242,7 @@ Content-Type: text/plain
 GET http://localhost:5000/api/files?pageNumber=1&pageSize=10
 ```
 
-## 📝 Configuration Files
+## Configuration Files
 
 ### Backend: appsettings.json
 
@@ -392,7 +268,7 @@ export const environment = {
 };
 ```
 
-## 🚨 Security Considerations
+## Security Considerations
 
 - Validate all file uploads
 - Use Cloudinary for secure file storage (not in database)
@@ -402,7 +278,7 @@ export const environment = {
 - Rate limit API endpoints
 - CORS configured for development
 
-## 📈 Performance
+## Performance
 
 - Paginated file listing (prevents memory issues)
 - Efficient database queries via PostgreSQL functions
@@ -447,7 +323,7 @@ ng test
 ng lint
 ```
 
-## 📚 Documentation
+## Documentation
 
 - [Angular Docs](https://angular.dev)
 - [ASP.NET Core Docs](https://learn.microsoft.com/en-us/aspnet/core)
@@ -455,7 +331,7 @@ ng lint
 - [Cloudinary API](https://cloudinary.com/documentation/cloudinary_api)
 - [Dapper Documentation](https://github.com/DapperLib/Dapper)
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### PostgreSQL Connection Issues
 
@@ -488,11 +364,7 @@ netstat -ano | findstr :5000
 netstat -ano | findstr :4200
 ```
 
-## 📄 License
-
-MIT
-
-## 💡 Future Enhancements
+## Future Enhancements
 
 - User authentication & authorization
 - File sharing links
